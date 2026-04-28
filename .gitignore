@@ -1,0 +1,26 @@
+# Allowlist approach: ignore everything by default, then opt-in to the
+# files we actually want tracked. This keeps the repo focused on the
+# MATLAB toolbox + reference doc, and excludes course material (slides,
+# past papers, tutorials, homework, etc.) and editor / OS junk.
+
+# Ignore everything
+*
+
+# Allow the MATLAB toolbox
+!MATLAB/
+!MATLAB/**
+
+# Allow the canonical reference (markdown + rendered PDF)
+!Summaries/
+Summaries/*
+!Summaries/MATLAB_Reference.md
+!Summaries/MATLAB_Reference.pdf
+
+# Allow this gitignore itself
+!.gitignore
+
+# Re-ignore generated / OS / editor cruft inside the allowed paths
+.DS_Store
+MATLAB/resources/
+MATLAB/.DS_Store
+MATLAB/.claude/
