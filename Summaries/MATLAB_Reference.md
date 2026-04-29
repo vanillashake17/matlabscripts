@@ -532,7 +532,7 @@ For the general case: `P = [1 -1; 1 2]`, `D = diag(5, 2)`, `A = P D P⁻¹`.
 
 For the symmetric case: `P = [1/√2, 1/√2; -1/√2, 1/√2]`, `D = diag(1, 3)`, verified `A = P D Pᵀ`.
 
-**Defective eigenvalues (gm < am).** When some eigenvalue has fewer eigenvectors than its algebraic multiplicity, `eigenAnalysis` no longer returns empty. It builds a Jordan chain by solving $(A-\lambda I)\mathbf v_{k+1}=\mathbf v_k$ for each missing direction, prints every chain vector, assembles them next to the eigenvector(s) in `P`, and returns the **Jordan form $J$** in place of $D$ (with $1$'s on the superdiagonal between chain members). The returned matrices satisfy $AP=PJ$ (verified automatically). The simple gm=1 chain is the common exam case; the multi-chain case (1 < gm < am) is also handled via null-space dimensions of $(A-\lambda I)^k$.
+**Defective eigenvalues (gm < am).** When some eigenvalue has fewer eigenvectors than its algebraic multiplicity, `eigenAnalysis` no longer returns empty. It builds a Jordan chain by solving $(A-\lambda I)\mathbf v_{k+1}=\mathbf v_k$ for each missing direction, prints every chain vector, assembles them next to the eigenvector(s) in `P`, and returns the **Jordan form $J$** in place of $D$ (with $1$'s on the superdiagonal between chain members). The returned matrices satisfy $AP=PJ$ (verified automatically). The simple gm=1 chain is the common exam case; the multi-chain case (1 < gm < am) is also handled via null-space dimensions of $(A-\lambda I)^k$. Each generalized eigenvector $\mathbf v_k$ (for $k\ge 2$) is also printed in **general-solution form** $\mathbf v_k=\text{particular}+s\,\mathbf e_1+t\,\mathbf e_2+\cdots$ where $\mathbf e_i$ span the $\lambda$-eigenspace (free parameters auto-named `s, t, r, t1, t2, …`).
 
 ```matlab
 [P, J] = eigenAnalysis([-4 -4 5; 3 4 -3; 1 2 0]);   % AY2122 Q3, repeated eigenvalue λ=1
@@ -540,8 +540,9 @@ For the symmetric case: `P = [1/√2, 1/√2; -1/√2, 1/√2]`, `D = diag(1, 3)
 
 ```
 λ = 1:  am = 2, gm = 1  → defective, build Jordan chain.
-   v_1 (eigenvector)         = [1; 0; 1]
-   v_2 (generalized, M·v2=v1) = [-1; 1; 0]
+   v_1 (eigenvector)              = [1; 0; 1]
+   v_2 (generalized, M·v2 = v1)   = [-1; 1; 0]
+   General form (s free):  v_2    = [s − 1; 1; s]
 P = [-2 1 -1; 1 0 1; 0 1 0],  J = [-2 0 0; 0 1 1; 0 0 1]
 Verified: A * P = P * J.
 ```

@@ -152,6 +152,28 @@ for i = 1:length(unique_eigenvalues)
                 else
                     disp(v);
                 end
+
+                % For generalized eigenvectors, also print the general
+                % solution form: particular + s_i * (eigenspace basis).
+                % Any vector in null(A - lambda*I) can be added to v_k and
+                % still satisfy (A - lambda I) v_k = v_{k-1}.
+                if k >= 2
+                    num_free = size(final_basis_for_P, 2);
+                    free_names = free_param_names(num_free);
+                    free_syms = sym(free_names);
+                    v_general = v;
+                    for j = 1:num_free
+                        v_general = v_general + free_syms(j) * final_basis_for_P(:, j);
+                    end
+                    fprintf('     General form (%s free in R): v_%d =\n', ...
+                        strjoin(free_names, ', '), k);
+                    if is_ugly(v_general)
+                        disp(vpa(v_general, 6));
+                    else
+                        disp(v_general);
+                    end
+                end
+
                 P_columns{end+1} = v; %#ok<AGROW>
                 D_diag_elements = [D_diag_elements; val]; %#ok<AGROW>
                 if k < bsz
@@ -357,6 +379,21 @@ function w = pick_independent_column(pool, used)
     end
     error('eigenAnalysis:noIndepVec', ...
         'Could not find a vector in null(M^k) independent of the existing chain basis.');
+end
+
+% -------------------------------------------------------------------------
+function names = free_param_names(k)
+% Return k free-parameter names following the project convention:
+% s, t, r, then t1, t2, t3, ...  (matches least_squares / subspaceFromEquations).
+    base = {'s', 't', 'r'};
+    names = cell(1, k);
+    for i = 1:k
+        if i <= numel(base)
+            names{i} = base{i};
+        else
+            names{i} = sprintf('t%d', i - numel(base));
+        end
+    end
 end
 
 % -------------------------------------------------------------------------
