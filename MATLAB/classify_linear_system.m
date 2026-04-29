@@ -113,16 +113,35 @@ function cases = classify_linear_system(varargin)
                 join(string(unique(consistency_exprs)), ', '));
     end
 
-    % (c) det(A) for square coefficient blocks — values where rank drops
-    %     so the unique-solution regime ends. Only meaningful for square A.
+    % (c) Rank-drop conditions for the coefficient matrix.
+    %     Square A:        det(A) = 0 marks the rank-drop boundary.
+    %     Tall A  (m > n): det(A'*A) = sum of squared n-by-n minors
+    %                      (Cauchy–Binet); zero iff rank(A) < n.
+    %     Wide A  (m < n): det(A*A') is the same idea for full row rank;
+    %                      unique solutions are impossible regardless, but
+    %                      this still marks where the consistency regime
+    %                      changes.
+    %     Without this branch for non-square A, RREF can silently divide
+    %     by parametric pivots whose vanishing isn't visible in the final
+    %     denominators (e.g. AY2425 makeup midterm Q1: 5x4 matrix where
+    %     a=0 and a=b drop the rank but classify only saw a-1 from the
+    %     RREF denominators).
     A_only = M(:, 1:n);
-    if size(A_only, 1) == size(A_only, 2)
-        detA = simplify(det(A_only));
-        if ~isAlways(detA == 0, 'Unknown', 'false') && ~isempty(symvar(detA))
-            fprintf('det(A) = %s\n', char(detA));
-            crit_conditions = [crit_conditions; detA];
-            crit_subs = [crit_subs, expand_critical(detA, vars)];
-        end
+    [m_rows, n_cols] = size(A_only);
+    if m_rows == n_cols
+        rank_poly = simplify(det(A_only));
+        rank_label = 'det(A)';
+    elseif m_rows > n_cols
+        rank_poly = simplify(det(A_only.' * A_only));
+        rank_label = 'det(A''*A)';
+    else
+        rank_poly = simplify(det(A_only * A_only.'));
+        rank_label = 'det(A*A'')';
+    end
+    if ~isAlways(rank_poly == 0, 'Unknown', 'false') && ~isempty(symvar(rank_poly))
+        fprintf('%s = %s\n', rank_label, char(rank_poly));
+        crit_conditions = [crit_conditions; rank_poly];
+        crit_subs = [crit_subs, expand_critical(rank_poly, vars)];
     end
 
     % (d) Left null space of the ORIGINAL coefficient matrix. Any vector

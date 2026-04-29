@@ -160,7 +160,7 @@ a = 0:  INFINITE SOLUTIONS (1 free variable)
 a = 1:  NO SOLUTION
 ```
 
-Infinite-solution branches additionally print the parametric general solution, a particular `x_p` (free vars = 0), and a null-space basis. Special cases are grouped by classification in the output. Critical conditions are detected from four sources: denominators of the parametric RREF, consistency rows of the form `[0 ⋯ 0 | f(a)]`, roots of `det(A)` (square coefficient blocks only), and the **left null space** of the original `A` (catches conditions that symbolic `rref` hides when it normalises a parametric divisor).
+Infinite-solution branches additionally print the parametric general solution, a particular `x_p` (free vars = 0), and a null-space basis. Special cases are grouped by classification in the output. Critical conditions are detected from four sources: denominators of the parametric RREF, consistency rows of the form `[0 ⋯ 0 | f(a)]`, **rank-drop conditions** of the coefficient matrix (`det(A)` for square `A`; `det(AᵀA)` for tall, `det(AAᵀ)` for wide — by Cauchy–Binet these are sums of squared maximal minors and vanish exactly when the rank drops), and the **left null space** of the original `A` (catches conditions that symbolic `rref` hides when it normalises a parametric divisor). The rank-drop check matters for non-square parametric systems (e.g. AY2425 makeup midterm Q1, a 5×4 system whose unique-solution regime breaks at `a = 0` and `a = b` — invisible to the RREF denominator scan).
 
 **Up to 4 parameters.** When a substitution leaves remaining symbolic variables, the function recurses on the substituted matrix, so joint conditions like `(a = 0 AND b = 2)` are reached. Every top-level call ends with a roll-up summary table:
 
