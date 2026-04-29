@@ -91,7 +91,9 @@ function x = solveLinearODE(A, x0, t0)
     nfund = size(fundamentals, 2);
     if isempty(x0)
         c = sym('c', [nfund 1]);
-        xlocal = simplify(fundamentals * c);
+        % No simplify on the matrix-vector product — it would fold trig sums
+        % into phase form. Symbolic auto-eval gives the textbook expansion.
+        xlocal = fundamentals * c;
         fprintf('\nGeneral solution x(t) = c_1*x_1(t) + ... + c_%d*x_%d(t):\n', ...
                 nfund, nfund);
         disp(xlocal);
@@ -103,7 +105,7 @@ function x = solveLinearODE(A, x0, t0)
         for k = 1:numel(c_vals)
             fprintf('  c_%d = %s\n', k, char(c_vals(k)));
         end
-        xlocal = simplify(fundamentals * c_vals);
+        xlocal = fundamentals * c_vals;
         fprintf('\nParticular solution x(t):\n');
         disp(xlocal);
     end
@@ -160,7 +162,11 @@ function v = clear_rational_fractions(v, t)
         L = lcm(L, sym(dabs));
     end
     if ~isequal(L, sym(1))
-        v = simplify(v * L);
+        % Plain multiplication — symbolic auto-eval distributes through the
+        % column. Avoid simplify() here: it would fold trig sums like
+        % cos(t)+sin(t) into √2·sin(t+π/4) (phase form), which the Chapter 7
+        % slides deliberately avoid.
+        v = v * L;
     end
 end
 
@@ -183,7 +189,12 @@ function [reals, imags] = build_complex_pair(V, bs, bsize, alpha, beta, t)
             P = P + coef * simplify(real(vc));
             Q = Q + coef * simplify(imag(vc));
         end
-        reals(:, j) = simplify(exp(alpha*t) * (P*cos(beta*t) - Q*sin(beta*t)));
-        imags(:, j) = simplify(exp(alpha*t) * (Q*cos(beta*t) + P*sin(beta*t)));
+        % No simplify(): keep trig in textbook "P cos(βt) − Q sin(βt)" form.
+        % simplify() would fold rows like cos(t)−sin(t) into √2·cos(t+π/4),
+        % which the Chapter 7 slides explicitly avoid. expand() would unfold
+        % sin(2t) into 2·sin(t)·cos(t), also undesired. Symbolic auto-eval
+        % already handles exp(0·t)=1 and matrix-scalar distribution.
+        reals(:, j) = exp(alpha*t) * (P*cos(beta*t) - Q*sin(beta*t));
+        imags(:, j) = exp(alpha*t) * (Q*cos(beta*t) + P*sin(beta*t));
     end
 end

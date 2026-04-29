@@ -640,6 +640,8 @@ For $\lambda = \pm i$ with eigenvector $\mathbf u\pm i\mathbf w$, the function e
 
 `x₁(t) = u cos t − w sin t`, `x₂(t) = u sin t + w cos t`, then `x(t) = c₁ x₁(t) + c₂ x₂(t)`.
 
+Trig is kept in the canonical Chapter 7 form $\mathbf P\cos(\beta t)-\mathbf Q\sin(\beta t)$. Rows like `cos(t) − sin(t)` are **not** collapsed into phase-shifted form (e.g. $\sqrt{2}\cos(t+\pi/4)$) — the function deliberately skips `simplify()` on the trig output to match the slides verbatim.
+
 **Repeated, deficient eigenvalue** (Jordan chain $\mathbf v_1, \mathbf v_2$):
 
 ```matlab
