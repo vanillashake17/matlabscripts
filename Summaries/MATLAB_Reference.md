@@ -484,7 +484,7 @@ _Example exam question_ (AY2324 Q6). *"Verify that the columns of $V$ form an or
 
 _Example exam question_ (AY2122 Q2(c)/(d), AY2021 Q2(b)(ii), AY2324 Q7/Q18). *"Find all least-squares solutions to $A\mathbf x=\mathbf v$. Hence find the orthogonal projection $\mathbf p=A\hat{\mathbf x}$ and the least-squares error $\|\mathbf v-\mathbf p\|$."*
 
-Solves the normal equations $A^TA\mathbf x=A^T\mathbf v$ via symbolic RREF and returns the full geometry of the projection: the least-squares solution $\hat{\mathbf x}$, the projection $\mathbf p=A\hat{\mathbf x}$, the orthogonal component $\mathbf w_o=\mathbf v-\mathbf p$, and the error norm $\|\mathbf w_o\|$. Each printed result is followed by a 5-significant-figure decimal version (`vpa(..., 5)`) for quick numerical sanity checks.
+Solves the normal equations $A^TA\mathbf x=A^T\mathbf v$ via symbolic RREF and returns the full geometry of the projection: the least-squares solution $\hat{\mathbf x}$, the projection $\mathbf p=A\hat{\mathbf x}$, the orthogonal component $\mathbf w_o=\mathbf v-\mathbf p$, and the error norm $\|\mathbf w_o\|$. The script also prints the **sum of squared residuals** $\|\mathbf w_o\|^2=\sum_i(v_i-p_i)^2$ — exam questions vary between asking for the distance $\|\mathbf w_o\|$ and the squared residual sum $\|\mathbf w_o\|^2$, so both are shown. Each printed result is followed by a 5-significant-figure decimal version (`vpa(..., 5)`) for quick numerical sanity checks.
 
 ```matlab
 A = [1 1; 1 2; 1 3];
@@ -498,6 +498,7 @@ x_hat = [2/3; 1]                        (≈ 0.6667, 1.0000)
 projection p   = [5/3; 8/3; 11/3]       (≈ 1.667, 2.667, 3.667)
 residual v − p = [1/3; −2/3; 1/3]
 distance       = sqrt(6)/3              (≈ 0.8165)
+sum of squared residuals  ||v - p||^2 = 2/3   (≈ 0.6667)
 ```
 
 When $\mathrm{rank}(A)<n$ the routine prints a parametric general solution `xp + s*n1 + t*n2 + …` (free parameters auto-named `s, t, r, t1, t2, …`); the projection $\mathbf p$ is still computed from the particular solution.

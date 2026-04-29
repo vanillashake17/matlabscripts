@@ -123,10 +123,16 @@ function [x_general, p, Wo, dist] = least_squares(A, v)
     fprintf('    (5 s.f.):\n');
     disp(vpa(Wo, 5));
 
-    fprintf('(4) LEAST-SQUARES ERROR (Distance):\n');
+    fprintf('(4) LEAST-SQUARES ERROR (Distance ||v - p||):\n');
     disp(dist);
     fprintf('    (5 s.f.):\n');
     disp(vpa(dist, 5));
+
+    sq_err = simplify(Wo.' * Wo);
+    fprintf('(5) SUM OF SQUARED RESIDUALS  ||v - p||^2 = sum (v_i - p_i)^2:\n');
+    disp(sq_err);
+    fprintf('    (5 s.f.):\n');
+    disp(vpa(sq_err, 5));
     fprintf('==============================================\n');
 end
 
