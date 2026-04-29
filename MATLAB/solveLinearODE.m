@@ -71,6 +71,15 @@ function x = solveLinearODE(A, x0, t0)
         end
     end
 
+    % --- Clear rational denominators per fundamental column -----------
+    % jordan(A) sometimes returns eigenvectors with fractional entries
+    % (e.g. [1/2; 1/2; 1]). Each fundamental solution is unique up to a
+    % nonzero scalar, so multiply through by the LCM of constant rational
+    % denominators to keep workings in integer form.
+    for k = 1:size(fundamentals, 2)
+        fundamentals(:, k) = clear_rational_fractions(fundamentals(:, k), t);
+    end
+
     % --- Print fundamental solutions ----------------------------------
     fprintf('Fundamental solutions:\n');
     for k = 1:size(fundamentals, 2)
@@ -126,6 +135,32 @@ function cj_b = find_conjugate_block(block_lambdas, used, lam)
             cj_b = k;
             return
         end
+    end
+end
+
+
+function v = clear_rational_fractions(v, t)
+    % Multiply column v by the LCM of constant rational denominators of
+    % its entries, leaving t-dependent denominators alone. Result is
+    % equivalent up to a nonzero scalar (fundamental solutions are
+    % defined up to scaling), but free of integer fractions.
+    [~, D] = numden(v);
+    L = sym(1);
+    for k = 1:numel(D)
+        d = D(k);
+        if has(d, t), continue; end
+        try
+            dval = double(d);
+        catch
+            continue;
+        end
+        if ~isfinite(dval) || abs(dval - round(dval)) > 1e-9, continue; end
+        dabs = abs(round(dval));
+        if dabs <= 1, continue; end
+        L = lcm(L, sym(dabs));
+    end
+    if ~isequal(L, sym(1))
+        v = simplify(v * L);
     end
 end
 

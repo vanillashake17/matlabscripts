@@ -19,6 +19,9 @@ Summaries/*
 # Allow this gitignore itself
 !.gitignore
 
+# Allow the top-level README
+!README.md
+
 # Re-ignore generated / OS / editor cruft inside the allowed paths
 .DS_Store
 MATLAB/resources/

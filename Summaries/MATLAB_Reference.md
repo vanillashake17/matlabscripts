@@ -80,7 +80,7 @@ All scripts default to **exact symbolic arithmetic** so workings stay in fractio
 | Function | Purpose | Call |
 |---|---|---|
 | `wronskian` | $W(\mathbf x_1,\ldots,\mathbf x_n)$ + independence verdict. | `wronskian(X)` |
-| `solveLinearODE` | Solve $\mathbf y'=A\mathbf y$ (general or IVP). Walks Jordan blocks manually — output stays **real for complex eigenvalues** (cos/sin form, no `1i` leakage). Prints fundamental solutions then general/particular. | `solveLinearODE(A,x0,t0)` |
+| `solveLinearODE` | Solve $\mathbf y'=A\mathbf y$ (general or IVP). Walks Jordan blocks manually — output stays **real for complex eigenvalues** (cos/sin form, no `1i` leakage), and each fundamental solution is rescaled to clear rational denominators (e.g. $[\tfrac12,\tfrac12,1]^T \to [1,1,2]^T$). Prints fundamental solutions then general/particular. | `solveLinearODE(A,x0,t0)` |
 | `scalarODEtoSystem` | Companion matrix for a scalar $n$-th order ODE $c_n y^{(n)} + \cdots + c_0 y = 0$. Returns $A$ such that $Y'=AY$ where $Y=[y;\,y';\,\ldots;\,y^{(n-1)}]$ — pass directly into `solveLinearODE`. | `A = scalarODEtoSystem([c_n, …, c_0])` |
 | `generalizedEigenvector` | Solve $(A-\lambda I)\mathbf v_2=\mathbf v_1$ for repeated eigenvalues. | `generalizedEigenvector(A,lam,v1)` |
 
@@ -616,7 +616,7 @@ If the leading coefficient isn't 1 the function divides through automatically an
 
 _Example exam question_ (AY2021 Q5(b)/Q6, AY2122 Q3(b), AY2223 Q3, AY2324 Q16(b)/Q20(d), Tutorial 11). *"Solve the system $\mathbf y'=A\mathbf y$ subject to the initial condition $\mathbf y(0)=\mathbf y_0$. Show your workings clearly."*
 
-The function first lists the **fundamental solutions** $\mathbf x_1(t), \ldots, \mathbf x_n(t)$ (one per column of a fundamental matrix), then the general/particular solution.
+The function first lists the **fundamental solutions** $\mathbf x_1(t), \ldots, \mathbf x_n(t)$ (one per column of a fundamental matrix), then the general/particular solution. Each $\mathbf x_k(t)$ is rescaled to clear rational denominators — fundamental solutions are unique up to a nonzero scalar, so e.g. an eigenvector $[\tfrac12, \tfrac12, 1]^T$ from `jordan()` is reported as $[1,1,2]^T$ for cleaner workings.
 
 **Distinct real eigenvalues:**
 
