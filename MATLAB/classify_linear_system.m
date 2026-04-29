@@ -405,14 +405,24 @@ function subs_list = expand_critical(eq, vars)
         end
         if isempty(sols), continue; end
 
-        % Filter to real solutions only when they are purely numeric;
-        % keep symbolic-in-other-vars solutions as-is.
+        % Filter to real solutions only. For purely numeric solutions, skip
+        % imaginary roots. For symbolic-in-other-vars solutions, skip those
+        % that carry the imaginary unit (e.g. det(A'*A) factors like
+        % 12a^2 + 4ab + 11b^2 have negative discriminant and produce
+        % a = -b/6 ± (2√2/3)i·b — never real for real (a,b) except (0,0),
+        % which is already reached via other factors).
         for k = 1:numel(sols)
             v = sols(k);
             if isempty(symvar(v))
-                % numeric: skip imaginary roots
                 try
                     if imag(vpa(v, 12)) ~= 0
+                        continue;
+                    end
+                catch
+                end
+            else
+                try
+                    if has(v, sym(1i))
                         continue;
                     end
                 catch
