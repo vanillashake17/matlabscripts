@@ -98,6 +98,13 @@ for i = 1:length(unique_eigenvalues)
     end
 
     eigenspace_matrix = val * I - A_sym;
+    eigenspace_rref = rref(eigenspace_matrix);
+    fprintf('   - Eigenspace: lambda*I - A  ->  rref(lambda*I - A):\n');
+    if is_ugly(eigenspace_matrix) || is_ugly(eigenspace_rref)
+        print_side_by_side(vpa(eigenspace_matrix, 6), vpa(eigenspace_rref, 6), '  ->  ');
+    else
+        print_side_by_side(eigenspace_matrix, eigenspace_rref, '  ->  ');
+    end
     basis_vectors = null(eigenspace_matrix);
     gm = size(basis_vectors, 2);
 
@@ -467,6 +474,46 @@ function names = free_param_names(k)
             names{i} = sprintf('t%d', i - numel(base));
         end
     end
+end
+
+% -------------------------------------------------------------------------
+function print_side_by_side(M1, M2, sep)
+% Display two matrices side-by-side with `sep` joining them on the middle row.
+    s1 = evalc('disp(M1)');
+    s2 = evalc('disp(M2)');
+    rows1 = splitlines(string(s1));
+    rows2 = splitlines(string(s2));
+    rows1 = rows1(strlength(strtrim(rows1)) > 0);
+    rows2 = rows2(strlength(strtrim(rows2)) > 0);
+    n = max(numel(rows1), numel(rows2));
+    if isempty(rows1)
+        w1 = 0;
+    else
+        w1 = max(strlength(rows1));
+    end
+    sep_str = char(sep);
+    sep_blank = repmat(' ', 1, numel(sep_str));
+    mid = ceil(n/2);
+    for i = 1:n
+        if i <= numel(rows1)
+            r1 = char(rows1(i));
+            r1 = [r1, repmat(' ', 1, w1 - strlength(rows1(i)))]; %#ok<AGROW>
+        else
+            r1 = repmat(' ', 1, w1);
+        end
+        if i <= numel(rows2)
+            r2 = char(rows2(i));
+        else
+            r2 = '';
+        end
+        if i == mid
+            connector = sep_str;
+        else
+            connector = sep_blank;
+        end
+        fprintf('     %s%s%s\n', r1, connector, r2);
+    end
+    fprintf('\n');
 end
 
 % -------------------------------------------------------------------------
