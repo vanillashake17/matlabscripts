@@ -1,64 +1,107 @@
 function [U, Q, dependent_indices] = gramSchmidt(V, tolerance)
-% gramSchmidt Performs Gram-Schmidt orthogonalization with linear dependence detection
+% gramSchmidt Performs Gram-Schmidt orthogonalisation with full step-by-step
+% workings printed as fractions/surds (symbolic internally), and linear
+% dependence detection.
 %
 % Inputs:
-%   V - Matrix where each column is a vector
-%   tolerance - (optional) Threshold for dependence detection (default 1e-10)
+%   V - Matrix (numeric or sym) whose columns are the input vectors
+%   tolerance - (optional) Numeric threshold for dependence detection
+%               (default 1e-10). Used as a fallback after the exact
+%               symbolic isAlways(...==0) check fails.
 %
 % Outputs:
-%   U - Orthogonal (unnormalized) vectors
-%   Q - Orthonormal vectors
+%   U - Orthogonal (unnormalised) vectors, returned as a numeric matrix
+%   Q - Orthonormal vectors, returned as a numeric matrix
 %   dependent_indices - Indices of linearly dependent columns in V
 %
 % Saved automatically in workspace as:
 %   orthogonal_set_gramSchmidt
-%   orthonormal_set_gramSchmidt
+%   orthonormal_set_gramSchmidt        (factored struct, exam-style)
+%   orthonormal_matrix_gramSchmidt     (raw numeric matrix)
 %   dependent_indices_gramSchmidt
 %
 % Example:
 %   V = [1 0 1; 1 1 0; 0 1 1];
 %   gramSchmidt(V);
 
-    if isa(V, 'sym')
-        error('gramSchmidt:symInput', ...
-            ['gramSchmidt is numeric-only (uses norm() < tolerance). ', ...
-             'For symbolic input use orthonormalize_rational(V) ', ...
-             '(exact rational/surd output) or orthogonalDiagonalize(A) for symmetric A.']);
-    end
     if nargin < 2
         tolerance = 1e-10;
     end
 
-    [~, n] = size(V);
-    U = [];
-    Q = [];
+    % Promote to symbolic internally so workings stay in fraction/surd form.
+    % Inputs may be numeric or sym; we always print via char(sym(...)).
+    V_sym = sym(V);
+    [~, n] = size(V_sym);
+    U_sym = sym([]);
+    Q_sym = sym([]);
     dependent_indices = [];
 
     fprintf('\n=== Gram-Schmidt Process ===\n\n');
     for j = 1:n
-        fprintf('Processing vector v%d:\n', j);
-        u_j = V(:, j);
+        fprintf('--- Processing v%d ---\n', j);
+        fprintf('  v%d = ', j); print_sym_row(V_sym(:, j).');
+
+        u_j = V_sym(:, j);
+        kept = size(U_sym, 2);
 
         % Subtract projections onto previous orthogonal vectors
-        for i = 1:size(U, 2)
-            proj = (dot(V(:, j), U(:, i)) / dot(U(:, i), U(:, i))) * U(:, i);
-            u_j = u_j - proj;
+        for i = 1:kept
+            wu_i  = simplify(dot(V_sym(:, j), U_sym(:, i)));
+            uu_i  = simplify(dot(U_sym(:, i), U_sym(:, i)));
+            coeff = simplify(wu_i / uu_i);
+            proj  = simplify(coeff * U_sym(:, i));
+
+            fprintf('  Projection onto u%d:\n', i);
+            fprintf('    <v%d, u%d> = %s\n', j, i, char(wu_i));
+            fprintf('    <u%d, u%d> = %s\n', i, i, char(uu_i));
+            fprintf('    c%d = <v%d,u%d>/<u%d,u%d> = %s\n', ...
+                i, j, i, i, i, char(coeff));
+            fprintf('    proj_{u%d}(v%d) = c%d * u%d = ', i, j, i, i);
+            print_sym_row(proj.');
+
+            u_j = simplify(u_j - proj);
         end
 
-        % Check for linear dependence
-        if norm(u_j) < tolerance
-            fprintf('  -> v%d is LINEARLY DEPENDENT (ignored)\n\n', j);
+        if kept > 0
+            fprintf('  u%d = v%d - (sum of projections) = ', j, j);
+            print_sym_row(u_j.');
+        else
+            fprintf('  u%d = v%d (no previous u_i to subtract)\n', j, j);
+        end
+
+        nrm_uj_sym = simplify(sqrt(dot(u_j, u_j)));
+        fprintf('  ||u%d|| = %s\n', j, char(nrm_uj_sym));
+
+        % Dependence check: exact symbolic zero, else numeric tolerance fallback
+        if isAlways(nrm_uj_sym == 0)
+            is_dependent = true;
+        else
+            try
+                is_dependent = double(nrm_uj_sym) < tolerance;
+            catch
+                is_dependent = false;
+            end
+        end
+
+        if is_dependent
+            fprintf('  -> ||u%d|| < tolerance (%.0e). v%d is LINEARLY DEPENDENT (ignored).\n\n', ...
+                j, tolerance, j);
             dependent_indices = [dependent_indices, j];
             continue;
         end
 
-        % Add orthogonal and orthonormal vectors
-        U = [U, u_j];
-        q_j = u_j / norm(u_j);
-        Q = [Q, q_j];
+        U_sym = [U_sym, u_j];
+        q_j = simplify(u_j / nrm_uj_sym);
+        Q_sym = [Q_sym, q_j];
 
-        fprintf('  -> v%d added to orthogonal and orthonormal sets (||u%d|| = %.4f)\n\n', j, j, norm(u_j));
+        fprintf('  q%d = u%d / ||u%d|| = ', j, j, j);
+        print_sym_row(q_j.');
+        fprintf('  -> v%d added to orthogonal and orthonormal sets.\n\n', j);
     end
+
+    % Convert sym matrices back to double for legacy returns / factored display
+    U = double(U_sym);
+    Q = double(Q_sym);
 
     % Display results
     fprintf('=== Summary ===\n');
@@ -72,12 +115,12 @@ function [U, Q, dependent_indices] = gramSchmidt(V, tolerance)
     end
 
     fprintf('=== Orthogonal Set (U) ===\n');
-    disp(U);
+    disp(U_sym);
     fprintf('=== Orthonormal Set (Q) - Factored Form ===\n');
     Q_factored = build_factored_struct(U);
     print_factored_struct(Q_factored);
     fprintf('\n=== Verification (Q^T * Q) ===\n');
-    disp(Q' * Q);
+    disp(simplify(Q_sym.' * Q_sym));
 
     % Assign results to base workspace
     assignin('base', 'orthogonal_set_gramSchmidt', U);
@@ -93,6 +136,20 @@ function [U, Q, dependent_indices] = gramSchmidt(V, tolerance)
     fprintf('\nTo display orthonormal_set_gramSchmidt:\n');
     fprintf('  print_factored_struct(orthonormal_set_gramSchmidt)\n');
     fprintf('=============================================\n\n');
+end
+
+
+function print_sym_row(row)
+% Print a symbolic row vector in [a, b, c] form (preserves fractions/surds).
+    fprintf('[');
+    for k = 1:length(row)
+        if k == 1
+            fprintf('%s', char(row(k)));
+        else
+            fprintf(', %s', char(row(k)));
+        end
+    end
+    fprintf(']\n');
 end
 
 

@@ -60,6 +60,11 @@ fprintf('   - Factored Form: %s\n', string(factored_poly));
 
 % --- 4. Find Eigenvalues and Analyze Eigenspaces ---
 fprintf('\nStep 2: Eigenspace Analysis\n');
+if is_symmetric && force_orthogonal_if_symmetric
+    fprintf('   (Note: A is symmetric, so eigenvectors from different eigenspaces are\n');
+    fprintf('    automatically orthogonal. Gram-Schmidt is applied only within an\n');
+    fprintf('    eigenspace of dimension > 1.)\n');
+end
 % MaxDegree=3 lets solve return explicit (Cardano) cubic roots instead of
 % the placeholder root(z^k - ..., z, k). Quartics still fall back to root().
 eigenvalues_sym = solve(char_poly_expr, x, 'MaxDegree', 3);
@@ -104,12 +109,76 @@ for i = 1:length(unique_eigenvalues)
     % Perform orthogonalization ONLY if the matrix is symmetric AND the user wants it.
     % Symmetric matrices always have gm = am, so no Jordan branch is needed.
     if is_symmetric && force_orthogonal_if_symmetric
-        [Q, ~] = qr(basis_vectors);
-        orthonormal_basis = Q(:, 1:gm);
+        % Clear rational denominators on each basis vector for cleaner working.
+        % Eigenvectors are defined only up to a nonzero scalar, so this is safe.
+        for c = 1:gm
+            basis_vectors(:,c) = clear_fractions(basis_vectors(:,c));
+        end
 
-        fprintf('   - Orthonormal Eigenspace Basis (from QR factorization):\n');
-        disp(orthonormal_basis);
-        final_basis_for_P = orthonormal_basis;
+        fprintf('   - Eigenspace Basis (before Gram-Schmidt):\n');
+        for c = 1:gm
+            fprintf('     a_%d =\n', c);
+            if is_ugly(basis_vectors(:,c))
+                disp(vpa(basis_vectors(:,c), 6));
+            else
+                disp(basis_vectors(:,c));
+            end
+        end
+
+        if gm == 1
+            v = basis_vectors(:,1);
+            norm_v = simplify(sqrt(v.' * v));
+            unit_v = simplify(v / norm_v);
+            fprintf('   - Eigenspace is 1-dimensional; no Gram-Schmidt needed within it.\n');
+            fprintf('   - Normalising: ||a_1|| = %s,  w_1 = a_1 / ||a_1|| =\n', string(norm_v));
+            if is_ugly(unit_v)
+                disp(vpa(unit_v, 6));
+            else
+                disp(unit_v);
+            end
+            final_basis_for_P = unit_v;
+        else
+            fprintf('   - Applying Gram-Schmidt within this eigenspace:\n');
+            ortho_basis = sym(zeros(size(basis_vectors)));
+            ortho_basis(:,1) = basis_vectors(:,1);
+            fprintf('     v_1 = a_1\n');
+            for k = 2:gm
+                v_k = basis_vectors(:,k);
+                formula = sprintf('a_%d', k);
+                for j = 1:(k-1)
+                    vj  = ortho_basis(:,j);
+                    num = simplify(basis_vectors(:,k).' * vj);
+                    den = simplify(vj.' * vj);
+                    coeff = simplify(num / den);
+                    v_k = v_k - coeff * vj;
+                    formula = sprintf('%s - (%s)*v_%d', formula, string(coeff), j);
+                end
+                v_k = simplify(v_k);
+                ortho_basis(:,k) = v_k;
+                fprintf('     v_%d = %s =\n', k, formula);
+                if is_ugly(v_k)
+                    disp(vpa(v_k, 6));
+                else
+                    disp(v_k);
+                end
+            end
+
+            fprintf('   - Normalising each orthogonal vector:\n');
+            unit_basis = sym(zeros(size(ortho_basis)));
+            for k = 1:gm
+                v = ortho_basis(:,k);
+                norm_v = simplify(sqrt(v.' * v));
+                unit_basis(:,k) = simplify(v / norm_v);
+                fprintf('     ||v_%d|| = %s,  w_%d = v_%d / ||v_%d|| =\n', ...
+                    k, string(norm_v), k, k, k);
+                if is_ugly(unit_basis(:,k))
+                    disp(vpa(unit_basis(:,k), 6));
+                else
+                    disp(unit_basis(:,k));
+                end
+            end
+            final_basis_for_P = unit_basis;
+        end
     else
         % Scale each eigenvector to clear rational denominators.
         % Eigenvectors are defined only up to a nonzero scalar, so this is safe.
@@ -284,11 +353,14 @@ function [chain_cols, block_sizes] = build_jordan_columns(A_sym, lambda, n, am, 
 
     if gm == 1
         % Common exam case: a single Jordan block of size am.
+        % Do NOT clear_fractions on chain elements: rescaling v_k alone
+        % breaks the Jordan recurrence (A - lambda I) v_k = v_{k-1}.
+        % Leave v_k with whatever fractions solve_chain_step produces so
+        % the pairing with v_{k-1} is exact.
         chain = sym(zeros(n, am));
         chain(:, 1) = eig_basis(:, 1);
         for k = 2:am
             chain(:, k) = solve_chain_step(M, chain(:, k-1), n, lambda, k);
-            chain(:, k) = clear_fractions(chain(:, k));
         end
         chain_cols = chain;
         block_sizes = am;
@@ -331,9 +403,10 @@ function [chain_cols, block_sizes] = build_jordan_columns(A_sym, lambda, n, am, 
             for j = (k-1):-1:1
                 chain(:, j) = M * chain(:, j+1);
             end
-            for j = 1:k
-                chain(:, j) = clear_fractions(chain(:, j));
-            end
+            % Do NOT clear_fractions per column here: each chain step
+            % satisfies (A - lambda I) v_{j+1} = v_j exactly, and rescaling
+            % a single v_j by an LCM would break the recurrence with its
+            % neighbour. Leave whatever fractions arise from null(M^k).
             chain_cols = [chain_cols, chain]; %#ok<AGROW>
             block_sizes = [block_sizes, k]; %#ok<AGROW>
             used = [used, chain]; %#ok<AGROW>

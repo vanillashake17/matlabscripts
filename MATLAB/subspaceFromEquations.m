@@ -34,33 +34,65 @@ function [basis, dimV] = subspaceFromEquations(C)
     fprintf('Constraint matrix C (size %dx%d):\n', m, n);
     disp(Csym);
 
-    basis = null(Csym);
-    dimV = size(basis, 2);
+    raw_basis = null(Csym);
+    dimV = size(raw_basis, 2);
 
     if dimV == 0
         fprintf('Trivial subspace: only x = 0 satisfies C*x = 0.\n');
+        basis = raw_basis;
         return;
     end
 
+    % Raw null() basis: column j has 1 at the j-th free-variable row and 0 at
+    % the other free rows. We use this for the literal "x_{free} = param"
+    % mapping in the printed general solution. The returned basis is then
+    % rescaled (clear_fractions) for cleaner integer display.
+    basis = raw_basis;
     for k = 1:dimV
         basis(:, k) = clear_fractions(basis(:, k));
     end
 
+    % Identify free-variable columns from rref(C) so we can label each
+    % parameter with the variable it represents.
+    R = rref(Csym);
+    pivots = pivot_columns(R);
+    free_cols = setdiff(1:n, pivots);
+
     fprintf('rank(C) = %d,   dim(V) = n - rank(C) = %d   (V is in R^%d)\n', ...
         n - dimV, dimV, n);
-    fprintf('Basis for V (columns):\n');
+    fprintf('Basis for V (columns, integer-scaled):\n');
     disp(basis);
 
     names = param_names(dimV);
+    fprintf('Free variables: ');
+    for k = 1:dimV
+        if k > 1
+            fprintf(', ');
+        end
+        fprintf('x_%d = %s', free_cols(k), names{k});
+    end
+    fprintf('\n');
+
+    % General solution row-by-row, built from the RAW null basis so that
+    % x_{free_cols(k)} = names{k} literally. simplify() collapses the trivial
+    % (1*s) entries.
+    x_gen = sym(zeros(n, 1));
+    for k = 1:dimV
+        x_gen = x_gen + sym(names{k}) * raw_basis(:, k);
+    end
+    x_gen = simplify(x_gen);
     fprintf('General solution to C*x = 0:\n');
-    fprintf('   x = ');
+    for i = 1:n
+        fprintf('   x_%d = %s\n', i, char(x_gen(i)));
+    end
+    fprintf('   (or in vector form: x = ');
     for j = 1:dimV
         if j > 1
             fprintf(' + ');
         end
-        fprintf('%s*%s', names{j}, vec_to_str(basis(:, j)));
+        fprintf('%s*%s', names{j}, vec_to_str(raw_basis(:, j)));
     end
-    fprintf('\n');
+    fprintf(')\n');
 end
 
 % -------------------------------------------------------------------------

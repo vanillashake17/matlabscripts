@@ -13,7 +13,7 @@ All scripts default to **exact symbolic arithmetic** so workings stay in fractio
 | Function | Purpose | Call |
 |---|---|---|
 | `solveLinearSystem_RREF` | Solve $A\mathbf{x}=\mathbf{b}$ by RREF: prints augmented matrix, RREF, status, general solution. | `solveLinearSystem_RREF(A,b)` |
-| `classify_linear_system` | Parametric system: detects critical conditions (RREF denominators, consistency rows, $\det A$, left-null space), enumerates each case, and recurses into joint conditions for **up to 4 parameters**. Ends with a roll-up summary table of all leaf cases. | `classify_linear_system(M)` or `(A,b)` |
+| `classify_linear_system` | Parametric system: detects critical conditions (RREF denominators, consistency rows, $\det A$, left-null space), enumerates each case, and recurses into joint conditions for **up to 4 parameters**. Distinguishes infinite-solution cases by free-parameter count (1 param `s`, 2 params `s,t`, …). Ends with a roll-up summary table of all leaf cases. | `classify_linear_system(M)` or `(A,b)` |
 | `symbolicREF` | Symbolic Gaussian elimination to row-echelon form (no early division by symbolic expressions). | `R = symbolicREF(A)` |
 | `symbolicRREF` | Exact symbolic RREF with case branching for parametric pivots. | `symbolicRREF(A)` |
 | `findEROsequence` | Identify the elementary row operations transforming $A$ into $B$. | `findEROsequence(A,B)` |
@@ -55,11 +55,11 @@ All scripts default to **exact symbolic arithmetic** so workings stay in fractio
 
 | Function | Purpose | Call |
 |---|---|---|
-| `projectOnto` | Projection $\mathrm{proj}_{\mathbf v}(\mathbf u)$ of one vector onto another. | `projectOnto(u,v)` |
+| `projectOnto` | Projection $\mathrm{proj}_{\mathbf u}(\mathbf w)$ with full workings: prints $\langle\mathbf w,\mathbf u\rangle$, $\langle\mathbf u,\mathbf u\rangle$, the scalar $c$, and the result. | `projectOnto(w,u)` |
 | `decomposeProjection` | Split $\mathbf w=\mathbf w_p+\mathbf w_n$ where $\mathbf w_p\in\mathrm{Col}(V)$, $\mathbf w_n\perp\mathrm{Col}(V)$. | `decomposeProjection(w,V)` |
 | `orthogonalComplement` | Basis of $V^\perp=\mathrm{Null}(V^T)$. | `orthogonalComplement(V)` |
-| `gramSchmidt` | Gram-Schmidt: turn an independent set into an orthogonal/orthonormal one (factored output). | `gramSchmidt(V)` |
-| `orthonormalize_rational` | Gram-Schmidt with exact rational/symbolic output (errors if input isn't already orthogonal). | `orthonormalize_rational(V)` |
+| `gramSchmidt` | Gram-Schmidt (symbolic internally): prints every dot product, projection, and norm step in fraction/surd form; final orthonormal set in factored $(1/\sqrt{c})\,\mathbf z$ form. | `gramSchmidt(V)` |
+| `orthonormalize_rational` | Gram-Schmidt with exact rational/symbolic output (full surd workings, errors only on linearly dependent columns). | `orthonormalize_rational(V)` |
 | `isOrthogonal` | Pairwise orthogonality check (decimal tolerance). | `isOrthogonal(V)` |
 | `isOrthonormal` | Exact symbolic orthonormality check (unit length **and** pairwise orthogonal). | `isOrthonormal(V)` |
 | `least_squares` | Least-squares solution of $A\mathbf x=\mathbf v$ via normal equations, with full RREF workings, projection, residual, and error norm. Handles unique and infinite-solution cases. | `[x,p,Wo,dist] = least_squares(A,v)` |
@@ -156,11 +156,14 @@ Abbreviated output:
 ```
 Critical values for 'a': 0, 1
 General case (a ≠ 0, 1):  UNIQUE SOLUTION
-a = 0:  INFINITE SOLUTIONS (1 free variable)
+a = 0:  INFINITE SOLUTIONS (1 parameter(s): s)
+        Free parameter(s): s   (x_3 = s)
 a = 1:  NO SOLUTION
 ```
 
-Infinite-solution branches additionally print the parametric general solution, a particular `x_p` (free vars = 0), and a null-space basis. Special cases are grouped by classification in the output. Critical conditions are detected from four sources: denominators of the parametric RREF, consistency rows of the form `[0 ⋯ 0 | f(a)]`, **rank-drop conditions** of the coefficient matrix (`det(A)` for square `A`; `det(AᵀA)` for tall, `det(AAᵀ)` for wide — by Cauchy–Binet these are sums of squared maximal minors and vanish exactly when the rank drops), and the **left null space** of the original `A` (catches conditions that symbolic `rref` hides when it normalises a parametric divisor). The rank-drop check matters for non-square parametric systems (e.g. AY2425 makeup midterm Q1, a 5×4 system whose unique-solution regime breaks at `a = 0` and `a = b` — invisible to the RREF denominator scan). Solutions that introduce the imaginary unit (e.g. quadratic factors with negative discriminant like `12a² + 4ab + 11b²`) are filtered out so only real critical conditions are enumerated.
+Infinite-solutions cases are split by the number of free parameters: 1 parameter is labelled `INFINITE SOLUTIONS (1 PARAMETER s)`, 2 parameters as `INFINITE SOLUTIONS (2 PARAMETERS s, t)`, and 3 or more as `INFINITE SOLUTIONS (3+ PARAMETERS)`. Each case also prints the literal mapping (e.g. `x_3 = s`) so the parameter-to-free-variable correspondence is unambiguous in exam working. The returned `result` struct exposes a `num_params` field alongside `classification` for programmatic use.
+
+Infinite-solution branches additionally print the parametric general solution, a particular `x_p` (free vars = 0), and a null-space basis. Special cases are grouped by classification in the output. Critical conditions are detected from four sources: denominators of the parametric RREF, consistency rows of the form `[0 ⋯ 0 | f(a)]`, **rank-drop conditions** of the coefficient matrix (`det(A)` for square `A`; `det(AᵀA)` for tall, `det(AAᵀ)` for wide — by Cauchy–Binet these are sums of squared maximal minors and vanish exactly when the rank drops), and the **left null space** of the original `A` (catches conditions that symbolic `rref` hides when it normalises a parametric divisor). The rank-drop check matters for non-square parametric systems (e.g. AY2425 makeup midterm Q1, a 5×4 system whose unique-solution regime breaks at `a = 0` and `a = b` — invisible to the RREF denominator scan). When the primary rank polynomial is **identically zero** (e.g. a column of `A` is zero for every value of the parameters, so the rank is already deficient generically) the solver falls back to enumerating all `r × r` minors of `A` (where `r` is the generic rank); this catches the "extra" parameter case where the rank drops *further*, which is what produces 2-parameter (rather than 1-parameter) infinite-solution branches in problems like AY2425 final Q1 (`a = 0, b = 0` 2-parameter case after `a = 0` already gives a 1-parameter family). Solutions that introduce the imaginary unit (e.g. quadratic factors with negative discriminant like `12a² + 4ab + 11b²`) are filtered out so only real critical conditions are enumerated.
 
 **Up to 4 parameters.** When a substitution leaves remaining symbolic variables, the function recurses on the substituted matrix, so joint conditions like `(a = 0 AND b = 2)` are reached. Every top-level call ends with a roll-up summary table:
 
@@ -171,9 +174,9 @@ Infinite-solution branches additionally print the parametric general solution, a
   Case   Conditions     Classification
   -----  -------------  --------------------
   (1  )  a = 0,  b ≠ 2  NO SOLUTION
-  (2  )  a ≠ 0,  b ≠ 2  UNIQUE SOLUTION
-  (3  )  a = 0,  b = 2  INFINITE SOLUTIONS
-  (4  )  a ≠ 0,  b = 2  INFINITE SOLUTIONS
+  (2  )  a = 0,  b = 2  INFINITE SOLUTIONS (2 PARAMETERS)
+  (3  )  a ≠ 0,  b = 2  INFINITE SOLUTIONS (1 PARAMETER)
+  (4  )  a ≠ 0,  b ≠ 2  UNIQUE SOLUTION
 ============================================================
 ```
 
@@ -390,12 +393,16 @@ When the subspace is defined by linear equations rather than a spanning set — 
 
 ```
 rank(C) = 1,  dim(V) = 3   (V ⊂ R^4)
-Basis for V (columns): [-3; 5; 0; 0],  [2; 0; 5; 0],  [-3; 0; 0; 5]
+Basis for V (columns, integer-scaled): [-3; 5; 0; 0],  [2; 0; 5; 0],  [-3; 0; 0; 5]
+Free variables: x_2 = s, x_3 = t, x_4 = r
 General solution to C*x = 0:
-   x = s*[-3; 5; 0; 0] + t*[2; 0; 5; 0] + r*[-3; 0; 0; 5]
+   x_1 = (2*t)/5 - (3*s)/5 - (3*r)/5
+   x_2 = s
+   x_3 = t
+   x_4 = r
 ```
 
-Also prints the general solution `x = s*v1 + t*v2 + r*v3 + t1*v4 + ⋯` (free-parameter names match `least_squares`). For multiple equations stack them as rows of `C`. Returns `null(C)` with denominators cleared.
+The printed general solution lists each $x_i$ in terms of the parameters and explicitly maps each parameter to its free variable (e.g. `x_2 = s, x_3 = t, x_4 = r`). The mapping uses the *raw* `null(C)` basis so that $x_{\text{free}}=\text{parameter}$ literally; the basis returned to the caller (and shown above the mapping) is the integer-scaled version (denominators cleared) for cleaner display. Free-parameter names match `least_squares` / `solveLinearSystem_RREF`. For multiple equations stack them as rows of `C`.
 
 ### `changeBasisCoords(coordsS, S, T)`
 
@@ -436,17 +443,22 @@ Basis for $\mathrm{Col}(A)\cap\mathrm{Col}(B)$.
 
 `find_intersection([1 0; 0 1; 1 1], [1 1; 1 0; 2 1])` prints `dim(intersection) = 1.   Basis: [1; 1; 2]`.
 
-### `projectOnto(u,v)`
+### `projectOnto(w, u)`
 
-_Example exam question_ (Tutorial 7). *"Compute the orthogonal projection of $\mathbf u$ onto $\mathbf v$."*
+_Example exam question_ (Tutorial 7). *"Compute the orthogonal projection of $\mathbf w$ onto $\mathbf u$."*
 
-$\mathrm{proj}_{\mathbf v}(\mathbf u)=\dfrac{\mathbf u\cdot\mathbf v}{\mathbf v\cdot\mathbf v}\,\mathbf v$.
+$\mathrm{proj}_{\mathbf u}(\mathbf w)=\dfrac{\langle\mathbf w,\mathbf u\rangle}{\langle\mathbf u,\mathbf u\rangle}\,\mathbf u$. The script promotes inputs to symbolic and prints every intermediate quantity — both dot products, the scalar coefficient, and the resulting vector — so you can copy the working straight onto the exam script.
 
 ```matlab
-projectOnto([3;4], [1;0])
+projectOnto([1;2;3], [1;1;0])
 ```
 
-→ `proj_v(u) = [3; 0]`.
+```
+<w, u> = 3
+<u, u> = ||u||^2 = 2
+c = <w,u>/<u,u> = 3/2
+proj_u(w) = c*u = [3/2; 3/2; 0]
+```
 
 ### `decomposeProjection(w,V)`
 
@@ -466,13 +478,31 @@ Find $V^\perp$ where $V$ is the null-space example from the slide ($V$ spanned b
 
 _Example exam question_ (AY2021 Q3(d), AY2324 Q15). *"Use the Gram–Schmidt process to convert the basis $S$ into an orthonormal basis."*
 
+Both functions walk through the full marker-style working: at every step they print the current input vector $\mathbf v_k$, each dot product $\langle\mathbf v_k,\mathbf u_j\rangle$ and $\langle\mathbf u_j,\mathbf u_j\rangle$ (or $\langle\mathbf v_k,\mathbf w_j\rangle$ in the orthonormal version), the scalar coefficient, the projection vector, the residual $\mathbf u_k=\mathbf v_k-\sum_j\text{(projections)}$, the norm $\|\mathbf u_k\|$, and the unit vector $\mathbf w_k=\mathbf u_k/\|\mathbf u_k\|$ — **all printed as exact fractions/surds**, not decimals.
+
+- `gramSchmidt(V)` promotes the input to symbolic internally so every printed quantity stays as a fraction or surd. Dependence is checked first via `isAlways(||u_k|| == 0)`; if that's inconclusive, falls back to a numeric tolerance (default `1e-10`, override via `gramSchmidt(V, tol)`). After the per-vector workings it prints the orthogonal set $U$ symbolically, the orthonormal set in factored form $(1/\sqrt{c})\,\mathbf z$, and the verification matrix $Q^TQ$. The returned `U` and `Q` are **numeric matrices** for downstream computation.
+- `orthonormalize_rational(V)` is the **exact symbolic** version — fractions and surds throughout, returns a sym matrix `E`. Errors only if a column is linearly dependent on earlier ones (the residual collapses to zero exactly).
+
 ```matlab
-V = [1 1; 1 -1; 0 1];
-gramSchmidt(V);             % Gram-Schmidt with factored display
-orthonormalize_rational(V); % errors if input isn't already orthogonal
+V = [1 1 0; 1 0 1; 0 1 1];
+gramSchmidt(V);              % symbolic internally, factored final display, numeric returns
+orthonormalize_rational(V);  % fully symbolic returns
 ```
 
-Sample orthonormal basis of `Col(V)`: `Q = [1/√2, 1/√6; 1/√2, -1/√6; 0, 2/√6]`.
+```
+--- Processing v2 ---
+  v2 = [1, 0, 1]
+  Projection onto u1:
+    <v2, u1> = 1
+    <u1, u1> = 2
+    c1 = <v2,u1>/<u1,u1> = 1/2
+    proj_{u1}(v2) = c1 * u1 = [1/2, 1/2, 0]
+  u2 = v2 - (sum of projections) = [1/2, -1/2, 1]
+  ||u2|| = 6^(1/2)/2
+  q2 = u2 / ||u2|| = [6^(1/2)/6, -6^(1/2)/6, 6^(1/2)/3]
+```
+
+Sample orthonormal basis of `Col(V)`: `Q = { (1/√2)[1,1,0],  (1/√6)[1,-1,2],  (1/√3)[-1,1,1] }`.
 
 ### `isOrthogonal(V)` and `isOrthonormal(V)`
 
@@ -501,7 +531,7 @@ distance       = sqrt(6)/3              (≈ 0.8165)
 sum of squared residuals  ||v - p||^2 = 2/3   (≈ 0.6667)
 ```
 
-When $\mathrm{rank}(A)<n$ the routine prints a parametric general solution `xp + s*n1 + t*n2 + …` (free parameters auto-named `s, t, r, t1, t2, …`); the projection $\mathbf p$ is still computed from the particular solution.
+When $\mathrm{rank}(A)<n$ the routine prints a parametric general solution `xp + s*n1 + t*n2 + …` (free parameters auto-named `s, t, r, t1, t2, …`) along with the explicit mapping (e.g. `Free variables: x_2 = s, x_4 = t`) so you can read off which variable each parameter represents. The projection $\mathbf p$ is still computed from the particular solution.
 
 ### `charPoly(A)`
 
@@ -523,17 +553,19 @@ _Example exam question_ (AY2021 Q5(a), AY2122 Q3, AY2223 Q4(b)/(d), AY2324 Q13).
 
 ```matlab
 [P,D] = eigenAnalysis([4 1; 2 3]);        % general: eigenspaces + diagonalisation
-[P,D] = eigenAnalysis(A, false);          % skip QR orthonormalisation when A is symmetric
+[P,D] = eigenAnalysis(A, false);          % skip Gram-Schmidt + normalisation when A is symmetric
 orthogonalDiagonalize([2 1; 1 2]);        % symmetric => orthogonal P
 ```
 
-`eigenAnalysis` prints, for every eigenvalue, the algebraic and geometric multiplicities and an explicit eigenspace basis from `null(λI − A)` (matching the `det(xI − A)` convention used for the characteristic polynomial; QR-orthonormal when `A` is symmetric). Each non-orthonormal basis vector is rescaled to clear rational denominators and any common integer factor — e.g. $[-1/5,\,1/5,\,1,\,1]^T$ is printed as $[-1,\,1,\,5,\,5]^T$. Returns `P, D` only if every $\mathrm{gm}=\mathrm{am}$; otherwise both come back empty.
+`eigenAnalysis` prints, for every eigenvalue, the algebraic and geometric multiplicities and an explicit eigenspace basis from `null(λI − A)` (matching the `det(xI − A)` convention used for the characteristic polynomial). Each basis vector is rescaled to clear rational denominators and any common integer factor — e.g. $[-1/5,\,1/5,\,1,\,1]^T$ is printed as $[-1,\,1,\,5,\,5]^T$. Returns `P, D` only if every $\mathrm{gm}=\mathrm{am}$; otherwise both come back empty.
+
+**Symmetric case (orthogonal diagonalisation).** When `A` is symmetric and `force_orthogonal_if_symmetric` is left at its default `true`, the script walks through the marker-style pipeline within each eigenspace: prints the raw basis vectors $\mathbf a_1,\mathbf a_2,\dots$, applies Gram–Schmidt explicitly with the projection-subtraction formula $\mathbf v_k=\mathbf a_k-\sum_{j<k}\frac{\mathbf a_k\cdot\mathbf v_j}{\mathbf v_j\cdot\mathbf v_j}\mathbf v_j$ (the coefficient is printed inline), then normalises each $\mathbf v_k$ to $\mathbf w_k=\mathbf v_k/\|\mathbf v_k\|$ with $\|\mathbf v_k\|$ shown. A 1-dimensional eigenspace skips Gram–Schmidt and just normalises. The script also reminds you once that cross-eigenspace orthogonality is automatic for symmetric `A`. Pass `false` as the second argument to suppress this and produce a non-orthogonal `P` instead.
 
 For the general case: `P = [1 -1; 1 2]`, `D = diag(5, 2)`, `A = P D P⁻¹`.
 
 For the symmetric case: `P = [1/√2, 1/√2; -1/√2, 1/√2]`, `D = diag(1, 3)`, verified `A = P D Pᵀ`.
 
-**Defective eigenvalues (gm < am).** When some eigenvalue has fewer eigenvectors than its algebraic multiplicity, `eigenAnalysis` no longer returns empty. It builds a Jordan chain by solving $(A-\lambda I)\mathbf v_{k+1}=\mathbf v_k$ for each missing direction, prints every chain vector, assembles them next to the eigenvector(s) in `P`, and returns the **Jordan form $J$** in place of $D$ (with $1$'s on the superdiagonal between chain members). The returned matrices satisfy $AP=PJ$ (verified automatically). The simple gm=1 chain is the common exam case; the multi-chain case (1 < gm < am) is also handled via null-space dimensions of $(A-\lambda I)^k$. Each generalized eigenvector $\mathbf v_k$ (for $k\ge 2$) is also printed in **general-solution form** $\mathbf v_k=\text{particular}+s\,\mathbf e_1+t\,\mathbf e_2+\cdots$ where $\mathbf e_i$ span the $\lambda$-eigenspace (free parameters auto-named `s, t, r, t1, t2, …`).
+**Defective eigenvalues (gm < am).** When some eigenvalue has fewer eigenvectors than its algebraic multiplicity, `eigenAnalysis` no longer returns empty. It builds a Jordan chain by solving $(A-\lambda I)\mathbf v_{k+1}=\mathbf v_k$ for each missing direction, prints every chain vector, assembles them next to the eigenvector(s) in `P`, and returns the **Jordan form $J$** in place of $D$ (with $1$'s on the superdiagonal between chain members). The returned matrices satisfy $AP=PJ$ (verified automatically). The simple gm=1 chain is the common exam case; the multi-chain case (1 < gm < am) is also handled via null-space dimensions of $(A-\lambda I)^k$. Each generalized eigenvector $\mathbf v_k$ (for $k\ge 2$) is also printed in **general-solution form** $\mathbf v_k=\text{particular}+s\,\mathbf e_1+t\,\mathbf e_2+\cdots$ where $\mathbf e_i$ span the $\lambda$-eigenspace (free parameters auto-named `s, t, r, t1, t2, …`). **Chain elements are not fraction-cleared** — rescaling a single $\mathbf v_k$ by an LCM would break $(A-\lambda I)\mathbf v_k=\mathbf v_{k-1}$, so $\mathbf v_k$ is left with whatever fractions the RREF / null-space step produces. The pairing then holds exactly (e.g. for $A=[3,-1;4,-1]$, $\mathbf v_1=[1;2]^T$, $\mathbf v_2=[\tfrac12;0]^T$ — not $[1;0]^T$, which would satisfy $(A-I)\mathbf v_2=2\mathbf v_1$).
 
 ```matlab
 [P, J] = eigenAnalysis([-4 -4 5; 3 4 -3; 1 2 0]);   % AY2122 Q3, repeated eigenvalue λ=1

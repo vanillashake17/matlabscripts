@@ -1,59 +1,79 @@
 function E = orthonormalize_rational(U)
-% ORTHONORMALIZE_RATIONAL Converts a set of vectors to an orthonormal set
-% using exact symbolic (rational) arithmetic.
+% ORTHONORMALIZE_RATIONAL Orthonormalises a set of vectors using exact
+% symbolic (rational/surd) Gram-Schmidt, with full workings printed.
 %
-% Usage: E = orthonormalize_rational(U)
+% Usage:
+%   E = orthonormalize_rational(U)
 %
-% Inputs:
-%   U - A matrix where each column is a vector to be orthonormalized.
+% Input:
+%   U - matrix whose columns are the vectors v1, v2, ... to orthonormalise.
 %
-% Outputs:
-%   E - A symbolic matrix where each column is an orthonormal vector.
+% Output:
+%   E - symbolic matrix whose columns are orthonormal vectors w1, w2, ...
 %
-% Note: This function will throw an ERROR if the original input vectors
-% in U are not strictly orthogonal to each other.
+% Pipeline (printed step-by-step):
+%   1) v_k                                     (input vector)
+%   2) for each previous w_j:                  print <v_k, w_j>
+%      v_k <- v_k - <v_k, w_j> * w_j
+%   3) print v_k after subtraction             (orthogonal vector u_k)
+%   4) ||u_k||                                  (exact symbolic norm)
+%   5) w_k = u_k / ||u_k||                     (orthonormal vector)
+%
+% NOTE: The original MA1508E convention writes Gram-Schmidt using the
+% *unnormalised* orthogonal vectors u_j (not the orthonormal w_j). With
+% w_j's the formula reduces to v_k - sum_j <v_k, w_j> w_j because
+% <w_j, w_j> = 1, which is exactly what is shown below.
+%
+% Errors only if a column is linearly dependent on earlier columns
+% (i.e. the orthogonal residual u_k collapses to zero).
 
-    % Convert input to symbolic to ensure exact rational arithmetic
     U_sym = sym(U);
     [n, k] = size(U_sym);
     E = sym(zeros(n, k));
 
-    % --- Gram-Schmidt Process ---
+    fprintf('\n=== Orthonormalisation (exact symbolic Gram-Schmidt) ===\n\n');
+
     for i = 1:k
-        % Start with the current vector
-        v = U_sym(:, i);
-        
-        % Subtract projections onto all previously computed orthonormal vectors
+        fprintf('--- Processing v%d ---\n', i);
+        v0 = U_sym(:, i);
+        fprintf('  v%d = ', i); disp(v0.');
+
+        v = v0;
         for j = 1:i-1
-             v = v - dot(U_sym(:, i), E(:, j)) * E(:, j);
+            cij = simplify(dot(v0, E(:, j)));   % <v_i, w_j>; w_j is unit
+            fprintf('  <v%d, w%d> = %s\n', i, j, char(cij));
+            fprintf('  proj_{w%d}(v%d) = <v%d,w%d> * w%d = ', j, i, i, j, j);
+            disp((simplify(cij * E(:, j))).');
+            v = simplify(v - cij * E(:, j));
         end
-        
-        % Check for linear dependence (if v is practically zero)
-        if v == sym(zeros(n,1))
-             error('Vector u%d is linearly dependent on previous vectors.', i);
+
+        if i > 1
+            fprintf('  u%d = v%d - sum of projections = ', i, i);
+            disp(v.');
+        else
+            fprintf('  u%d = v%d (no previous w_j)\n', i, i);
         end
-        
-        % Normalize the resulting vector exactly
-        E(:, i) = v / norm(v);
+
+        if isAlways(v == sym(zeros(n,1)))
+            error('orthonormalize_rational:dependent', ...
+                'Vector v%d is linearly dependent on previous vectors.', i);
+        end
+
+        nrm = simplify(sqrt(dot(v, v)));
+        fprintf('  ||u%d|| = sqrt(<u%d,u%d>) = %s\n', i, i, i, char(nrm));
+
+        w = simplify(v / nrm);
+        fprintf('  w%d = u%d / ||u%d|| = ', i, i, i);
+        disp(w.');
+        fprintf('\n');
+
+        E(:, i) = w;
     end
-    
-    % Display the resulting orthonormal set immediately
-    disp('Conversion successful. The orthonormal set is:');
+
+    fprintf('=== Orthonormal set (columns of E) ===\n');
     disp(E);
 
-    % --- Orthogonality Check of ORIGINAL vectors ---
-    % We check this after conversion to ensure user sees the result first,
-    % but we still strictly enforce the error requirement.
-    for i = 1:k
-        for j = i+1:k
-            d = dot(U_sym(:, i), U_sym(:, j));
-            % If dot product is not exactly zero
-            if d ~= 0
-                fprintf('\nORTHOGONALITY CHECK FAILED:\n');
-                fprintf('Original vectors u%d and u%d are NOT orthogonal.\n', i, j);
-                fprintf('Dot product = %s\n', char(d));
-                error('The original set of vectors is not orthogonal.');
-            end
-        end
-    end
+    fprintf('=== Verification (E^T * E should be I) ===\n');
+    disp(simplify(E.' * E));
+    fprintf('========================================================\n\n');
 end

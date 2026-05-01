@@ -142,6 +142,47 @@ function cases = classify_linear_system(varargin)
         fprintf('%s = %s\n', rank_label, char(rank_poly));
         crit_conditions = [crit_conditions; rank_poly];
         crit_subs = [crit_subs, expand_critical(rank_poly, vars)];
+    elseif isAlways(rank_poly == 0, 'Unknown', 'false')
+        % Fallback: the primary rank polynomial is IDENTICALLY zero, meaning
+        % A is generically rank-deficient (e.g. a column is zero for every
+        % value of the parameters). Rank can still drop FURTHER on a
+        % parameter variety, which would push the system from "infinite
+        % solutions with k parameters" to "infinite solutions with k+1
+        % parameters". Enumerate all r×r minors (where r is the generic
+        % rank) and treat each non-trivial one as a rank-drop boundary.
+        % Without this, e.g. the 4x4 system from AY2425 final Q1 misses the
+        % a=0,b=0 joint case that yields 2-parameter infinite solutions.
+        try
+            r_gen = double(rank(A_only));
+        catch
+            r_gen = min(m_rows, n_cols) - 1;
+        end
+        if r_gen > 0 && r_gen < min(m_rows, n_cols)
+            row_combos = nchoosek(1:m_rows, r_gen);
+            col_combos = nchoosek(1:n_cols, r_gen);
+            minor_polys = sym([]);
+            for ri = 1:size(row_combos, 1)
+                for ci = 1:size(col_combos, 1)
+                    sub = A_only(row_combos(ri, :), col_combos(ci, :));
+                    d = simplify(det(sub));
+                    if ~isAlways(d == 0, 'Unknown', 'false') ...
+                            && ~isempty(symvar(d))
+                        minor_polys = [minor_polys; d]; %#ok<AGROW>
+                    end
+                end
+            end
+            if ~isempty(minor_polys)
+                minor_polys = unique(minor_polys);
+                fprintf('%dx%d minors with parametric rank-drop: %s\n', ...
+                    r_gen, r_gen, ...
+                    char(join(string(minor_polys), ', ')));
+                for k = 1:numel(minor_polys)
+                    crit_conditions = [crit_conditions; minor_polys(k)]; %#ok<AGROW>
+                    crit_subs = [crit_subs, ...
+                        expand_critical(minor_polys(k), vars)]; %#ok<AGROW>
+                end
+            end
+        end
     end
 
     % (d) Left null space of the ORIGINAL coefficient matrix. Any vector
@@ -230,9 +271,11 @@ function cases = classify_linear_system(varargin)
     cases.special_cases = struct();
     if ~isempty(crit_subs)
         buckets = struct( ...
-            'NoSolution',     {{}}, ...
-            'InfiniteSolutions', {{}}, ...
-            'UniqueSolution', {{}});
+            'NoSolution',         {{}}, ...
+            'InfiniteSolutions1', {{}}, ...
+            'InfiniteSolutions2', {{}}, ...
+            'InfiniteSolutionsK', {{}}, ...
+            'UniqueSolution',     {{}});
         recursive_entries = {};   % cell array of {label, fieldname, output, result}
 
         for i = 1:numel(crit_subs)
@@ -250,11 +293,20 @@ function cases = classify_linear_system(varargin)
                 M_special_local = M_special; %#ok<NASGU>
                 output_str = evalc( ...
                     'r = analyze_case(M_special_local, special_cond_str);');
-                switch r.classification
-                    case 'No Solution',        key = 'NoSolution';
-                    case 'Infinite Solutions', key = 'InfiniteSolutions';
-                    case 'Unique Solution',    key = 'UniqueSolution';
-                    otherwise,                 key = 'UniqueSolution';
+                if strcmp(r.classification, 'No Solution')
+                    key = 'NoSolution';
+                elseif strcmp(r.classification, 'Unique Solution')
+                    key = 'UniqueSolution';
+                elseif startsWith(r.classification, 'Infinite Solutions')
+                    if r.num_params == 1
+                        key = 'InfiniteSolutions1';
+                    elseif r.num_params == 2
+                        key = 'InfiniteSolutions2';
+                    else
+                        key = 'InfiniteSolutionsK';
+                    end
+                else
+                    key = 'UniqueSolution';
                 end
                 buckets.(key){end+1} = struct( ...
                     'output', output_str, ...
@@ -279,11 +331,15 @@ function cases = classify_linear_system(varargin)
             end
         end
 
-        group_order = {'NoSolution', 'InfiniteSolutions', 'UniqueSolution'};
+        group_order = {'NoSolution', 'InfiniteSolutions1', ...
+                       'InfiniteSolutions2', 'InfiniteSolutionsK', ...
+                       'UniqueSolution'};
         group_label = struct( ...
-            'NoSolution',        'NO SOLUTION', ...
-            'InfiniteSolutions', 'INFINITE SOLUTIONS', ...
-            'UniqueSolution',    'UNIQUE SOLUTION');
+            'NoSolution',         'NO SOLUTION', ...
+            'InfiniteSolutions1', 'INFINITE SOLUTIONS (1 PARAMETER s)', ...
+            'InfiniteSolutions2', 'INFINITE SOLUTIONS (2 PARAMETERS s, t)', ...
+            'InfiniteSolutionsK', 'INFINITE SOLUTIONS (3+ PARAMETERS)', ...
+            'UniqueSolution',     'UNIQUE SOLUTION');
 
         fprintf('\n--- Special Case Summary ---\n');
         for g = 1:numel(group_order)
@@ -492,12 +548,19 @@ function result = analyze_case(Matrix, case_name)
             result.solution = simplify(R(1:n, n+1));
             fprintf('Solution:\n'); disp(result.solution);
         else
-            num_params = n - rankA; result.classification = 'Infinite Solutions';
-            fprintf('Analysis: The system is consistent and has %d free variable(s) (rank = %d < n).\n', num_params, rankA);
-            fprintf('Conclusion: The system has INFINITE SOLUTIONS.\n');
-
+            num_params = n - rankA;
+            result.num_params = num_params;
             free_cols = setdiff(1:n, pivot_cols);
             param_names = pick_param_names(numel(free_cols));
+            if num_params == 1
+                result.classification = 'Infinite Solutions (1 parameter)';
+            else
+                result.classification = sprintf( ...
+                    'Infinite Solutions (%d parameters)', num_params);
+            end
+            fprintf('Analysis: The system is consistent and has %d free variable(s) (rank = %d < n).\n', num_params, rankA);
+            fprintf('Conclusion: The system has INFINITE SOLUTIONS (%d parameter(s): %s).\n', ...
+                num_params, strjoin(param_names, ', '));
             params = sym(param_names);
 
             % Build the general solution: free vars take parameter symbols;
@@ -524,7 +587,11 @@ function result = analyze_case(Matrix, case_name)
                 null_basis(:, k) = subs(x_gen, params, e_k) - x_part;
             end
 
-            fprintf('Free parameter(s): %s\n', strjoin(param_names, ', '));
+            free_var_labels = arrayfun( ...
+                @(k) sprintf('x_%d = %s', free_cols(k), param_names{k}), ...
+                1:numel(free_cols), 'UniformOutput', false);
+            fprintf('Free parameter(s): %s   (%s)\n', ...
+                strjoin(param_names, ', '), strjoin(free_var_labels, ', '));
             fprintf('General solution x = x_p + %s:\n', ...
                 strjoin(arrayfun(@(k) sprintf('%s*v_%d', param_names{k}, k), ...
                                   1:numel(params), 'UniformOutput', false), ' + '));
@@ -633,16 +700,46 @@ function print_leaves_table(leaves)
     fprintf('  %s  %s  %s\n', repmat('-', 1, 5), ...
         repmat('-', 1, cond_w), repmat('-', 1, 20));
 
-    order = {'No Solution', 'Unique Solution', 'Infinite Solutions'};
-    label = containers.Map(order, ...
-        {'NO SOLUTION', 'UNIQUE SOLUTION', 'INFINITE SOLUTIONS'});
+    % Build display order dynamically: No Solution → Infinite Solutions
+    % (sorted by parameter count, ascending) → Unique Solution. Each
+    % Infinite Solutions classification carries its own parameter count
+    % from analyze_case (e.g. 'Infinite Solutions (1 parameter)'); collect
+    % the unique strings present in the leaves and sort them numerically.
+    inf_cls = {};
+    for i = 1:numel(leaves)
+        c = leaves{i}.classification;
+        if startsWith(c, 'Infinite Solutions')
+            inf_cls{end+1} = c; %#ok<AGROW>
+        end
+    end
+    inf_cls = unique(inf_cls);
+    if ~isempty(inf_cls)
+        nums = zeros(1, numel(inf_cls));
+        for i = 1:numel(inf_cls)
+            tok = regexp(inf_cls{i}, '\((\d+)\s*parameter', 'tokens', 'once');
+            if isempty(tok)
+                nums(i) = inf;
+            else
+                nums(i) = str2double(tok{1});
+            end
+        end
+        [~, idx] = sort(nums);
+        inf_cls = inf_cls(idx);
+    end
+    order = [{'No Solution'}, inf_cls, {'Unique Solution'}];
+    label_map = containers.Map();
+    label_map('No Solution') = 'NO SOLUTION';
+    label_map('Unique Solution') = 'UNIQUE SOLUTION';
+    for i = 1:numel(inf_cls)
+        label_map(inf_cls{i}) = upper(inf_cls{i});
+    end
 
     n = 1;
     for g = 1:numel(order)
         cls = order{g};
         for i = 1:numel(leaves)
             if strcmp(leaves{i}.classification, cls)
-                fprintf('  (%-3d)  %-*s  %s\n', n, cond_w, cond_strs{i}, label(cls));
+                fprintf('  (%-3d)  %-*s  %s\n', n, cond_w, cond_strs{i}, label_map(cls));
                 n = n + 1;
             end
         end

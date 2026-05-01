@@ -98,9 +98,16 @@ function [x_general, p, Wo, dist] = least_squares(A, v)
         end
         
         fprintf('\n(1) GENERAL LEAST-SQUARES SOLUTION [x_general]:\n');
-        printGeneralSolution(x_particular, null_basis, pickParamNames(length(free_vars)));
+        param_names_local = pickParamNames(length(free_vars));
+        fprintf('    Free variables: ');
+        for k = 1:numel(free_vars)
+            if k > 1, fprintf(', '); end
+            fprintf('x_%d = %s', free_vars(k), param_names_local{k});
+        end
+        fprintf('\n');
+        printGeneralSolution(x_particular, null_basis, param_names_local);
         fprintf('    (5 s.f.):\n');
-        printGeneralSolution(vpa(x_particular, 5), vpa(null_basis, 5), pickParamNames(length(free_vars)));
+        printGeneralSolution(vpa(x_particular, 5), vpa(null_basis, 5), param_names_local);
     end
     
     fprintf('------------------------------------\n\n');
